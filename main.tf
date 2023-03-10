@@ -3,6 +3,7 @@
 
 provider "aws" {
   region = var.region
+  profile = var.profile
 }
 
 data "aws_availability_zones" "available" {}
@@ -22,11 +23,11 @@ module "vpc" {
 
   name = "education-vpc"
 
-  cidr = "10.0.0.0/16"
+  cidr = var.vpc-cidr
   azs  = slice(data.aws_availability_zones.available.names, 0, 3)
 
-  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  public_subnets  = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+  private_subnets = var.vpc-private-subnets
+  public_subnets  = var.vpc-public-subnets
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
@@ -48,7 +49,7 @@ module "eks" {
   version = "19.5.1"
 
   cluster_name    = local.cluster_name
-  cluster_version = "1.24"
+  cluster_version = var.eks-cluster-version
 
   vpc_id                         = module.vpc.vpc_id
   subnet_ids                     = module.vpc.private_subnets
@@ -56,6 +57,7 @@ module "eks" {
 
   eks_managed_node_group_defaults = {
     ami_type = "AL2_x86_64"
+    capacity_type = "SPOT"
 
   }
 
@@ -64,6 +66,8 @@ module "eks" {
       name = "node-group-1"
 
       instance_types = ["t3.small"]
+
+      capacity_type = "ON_DEMAND"
 
       min_size     = 1
       max_size     = 3
