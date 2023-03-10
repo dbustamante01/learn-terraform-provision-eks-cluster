@@ -3,10 +3,9 @@
 
 terraform {
   backend "s3" {
-    key    = "statefiles/terraform.tfstate"
   }
 
-/*  cloud {
+  /*  cloud {
     workspaces {
       name = "learn-terraform-eks"
     }

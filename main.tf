@@ -2,14 +2,21 @@
 # SPDX-License-Identifier: MPL-2.0
 
 provider "aws" {
-  region = var.region
+  region  = var.region
   profile = var.profile
+
+  assume_role {
+    # The role ARN within Account B to AssumeRole into. Created in step 1.
+    role_arn = var.role_arn
+    # (Optional) The external ID created in step 1c.
+    #external_id = "my_external_id"
+  }
 }
 
 data "aws_availability_zones" "available" {}
 
 locals {
-  cluster_name = "education-eks-${random_string.suffix.result}"
+  cluster_name = "${var.environment}-eks-${random_string.suffix.result}"
 }
 
 resource "random_string" "suffix" {
@@ -21,7 +28,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "3.19.0"
 
-  name = "education-vpc"
+  name = "${local.cluster_name}-vpc"
 
   cidr = var.vpc-cidr
   azs  = slice(data.aws_availability_zones.available.names, 0, 3)
@@ -56,7 +63,7 @@ module "eks" {
   cluster_endpoint_public_access = true
 
   eks_managed_node_group_defaults = {
-    ami_type = "AL2_x86_64"
+    ami_type      = "AL2_x86_64"
     capacity_type = "SPOT"
 
   }
@@ -85,7 +92,7 @@ module "eks" {
     }
   }
 }
-    
+
 
 # https://aws.amazon.com/blogs/containers/amazon-ebs-csi-driver-is-now-generally-available-in-amazon-eks-add-ons/ 
 data "aws_iam_policy" "ebs_csi_policy" {
