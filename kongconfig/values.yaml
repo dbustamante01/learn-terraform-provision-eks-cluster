@@ -1,0 +1,39 @@
+# Specify Kong proxy service configuration
+proxy:
+  # Enable creating a Kubernetes service for the proxy
+  enabled: true
+  type: LoadBalancer
+  loadBalancerClass:
+  # Override proxy Service name
+  nameOverride: ""
+  # To specify annotations or labels for the proxy service, add them to the respective
+  # "annotations" or "labels" dictionaries below.
+  # annotations: {}
+  annotations:
+  # If terminating TLS at the ELB, the following annotations can be used
+  # "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "*",
+  # "service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
+  # "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "arn:aws:acm:REGION:ACCOUNT:certificate/XXXXXX-XXXXXXX-XXXXXXX-XXXXXXXX",
+  # "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "kong-proxy-tls",
+  # "service.beta.kubernetes.io/aws-load-balancer-type": "elb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: true
+    # service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-0cfd2e8b037aeda0e,eipalloc-0f61795d7c58b90d1,eipalloc-0e4c78b41f4c77e59                                                                                             │
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: traffic-port
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: TCP
+    # service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-020b4a4270d7e8794,subnet-07286538f096b9301,subnet-09458d991152d85fd
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+  labels:
+    enable-metrics: "true"
+postgresql:
+  enabled: false
+  auth:
+    username: kong
+    database: kong
+  image:
+    # use postgres < 14 until is https://github.com/Kong/kong/issues/8533 resolved and released
+    # enterprise (kong-gateway) supports postgres 14
+    tag: 13.6.0-debian-10-r52
+  service:
+    ports:
+      postgresql: "5432"

@@ -1,6 +1,17 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
+provider "helm" {
+  kubernetes {
+    config_path    = "~/.kube/config"
+    config_context = module.eks.cluster_arn
+  }
+}
+
+provider "kubernetes" {
+  config_path    = "~/.kube/config"
+  config_context = module.eks.cluster_arn
+}
 provider "aws" {
   region  = var.region
   profile = var.profile
@@ -77,8 +88,8 @@ module "eks" {
       capacity_type = "ON_DEMAND"
 
       min_size     = 1
-      max_size     = 3
-      desired_size = 2
+      max_size     = 4
+      desired_size = 3
     }
 
     two = {
@@ -87,8 +98,8 @@ module "eks" {
       instance_types = ["t3.small"]
 
       min_size     = 1
-      max_size     = 2
-      desired_size = 1
+      max_size     = 3
+      desired_size = 2
     }
   }
 }
@@ -121,3 +132,74 @@ resource "aws_eks_addon" "ebs-csi" {
   }
 }
 
+resource "aws_eip" "static-nlb-eip" {
+  count = length(module.vpc.public_subnets)
+
+  tags = {
+    "Name" = "${module.eks.cluster_name}-static-nlb-eip"
+  }
+
+  vpc = true
+}
+
+# resource "aws_lb" "static-nlb" {
+#   name               = "${var.environment}-static-nlb"
+#   internal           = false
+#   load_balancer_type = "network"
+#   # subnets            = [for subnet in module.vpc.public_subnets : subnet]
+
+#   dynamic "subnet_mapping" {
+#     for_each = range(length(module.vpc.public_subnets))
+
+#     content {
+#       subnet_id     = module.vpc.public_subnets[subnet_mapping.key]
+#       allocation_id = lookup(aws_eip.static-nlb-eip[subnet_mapping.key], "id")
+#     }
+#   }
+
+#   enable_deletion_protection = true
+
+#   # access_logs {
+#   #   bucket  = aws_s3_bucket.lb_logs.id
+#   #   prefix  = "static-nlb"
+#   #   enabled = true
+#   # }
+
+#   tags = {
+#     Environment = "${var.environment}"
+#   }
+# }
+
+# deploy Kong Gateway Enterprise
+resource "kubernetes_namespace" "kong" {
+  metadata {
+    name = "kong"
+  }
+}
+
+resource "helm_release" "kong-ingress" {
+  name      = "kong-ingress"
+  namespace = kubernetes_namespace.kong.metadata[0].name
+
+  repository = "https://charts.konghq.com"
+  chart      = "kong"
+  # version    = "2.16.5"
+
+  values = [
+    "${file("kongconfig/values.yaml")}"
+  ]
+
+  set {
+    name  = "proxy.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-eip-allocations"
+    value = join("\\,", aws_eip.static-nlb-eip[*].id)
+    type  = "string"
+  }
+
+  set {
+    name  = "proxy.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-subnets"
+    value = join("\\,", module.vpc.public_subnets)
+    type  = "string"
+  }
+
+  depends_on = [module.eks]
+}

@@ -20,3 +20,13 @@ output "cluster_name" {
   description = "Kubernetes Cluster Name"
   value       = module.eks.cluster_name
 }
+
+output "public_subnets" {
+  description = "VPC Public Subnets"
+  value       = module.vpc.public_subnets
+}
+
+# output "static_nlb_eips" {
+#   description = "VPC Static NLB EIPs"
+#   value       = aws_eip.static-nlb-eip[*].public_ip
+# }
